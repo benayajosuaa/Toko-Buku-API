@@ -6,23 +6,30 @@ import (
     "net/http"
 	"encoding/json"
 	"os"
+	"strconv"
+	"strings"
 )
 
 
-
+// Struct 1: inisalisasi tipe data Buku
 type Buku struct {
-	ID int `json:"id"`
-	Judul string `json:"judul"`
-	Penulis string `json:"penulis"`
-	Harga int `json:"harga"`
-	Stok int `json:"stok"`
+	ID 		int 	`json:"id"`
+	Judul 	string 	`json:"judul"`
+	Penulis	string 	`json:"penulis"`
+	Harga 	int 	`json:"harga"`
+	Stok 	int 	`json:"stok"`
 }
 
+
+// Struct 2: 
 type DataBuku struct {
 	DaftarBuku  []Buku `json:"data_buku"`
 }
 
 // CREATE
+
+
+
 
 // GET
 func getAllBook(w http.ResponseWriter, r *http.Request){
@@ -69,16 +76,76 @@ func getAllBook(w http.ResponseWriter, r *http.Request){
 
 
 // GET by ID
+func getBookByID(w http.ResponseWriter, r *http.Request){
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		http.Error(w, "Gunakan method GET", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Mengambil bagian setelah /buku/
+	// cth: localhost:8080/buku/1 -> yg diambil "1"
+	idText := strings.TrimPrefix(r.URL.Path, "/buku/")
+
+	// mengubah ID dari teks menjadi int
+	id, err := strconv.Atoi(idText)
+	if err != nil || id < 1 {
+		http.Error(w, "ID harus angka Positif", http.StatusBadRequest)
+		return
+	}
+
+	// debugging utk nampilin id
+	log.Println("ID yang diminta:", id)
+
+	isiFile, err := os.ReadFile("data.json")
+	if err != nil {
+		log.Println("Gagal membaca file:", err)
+		http.Error(w, "Gagal Membaca data buku", http.StatusInternalServerError)
+		return
+	}
+
+	var data DataBuku
+
+	err = json.Unmarshal(isiFile, &data)
+	if err != nil {
+		log.Println("Gagal memproses JSON:", err)
+		http.Error(w, "Gagal memproses data buku", http.StatusInternalServerError)
+	}
+
+	for _, buku := range data.DaftarBuku{
+		if buku.ID == id {
+			w.Header().Set("Content-Type", "application/json")
+
+			err = json.NewEncoder(w).Encode(buku)
+			if err != nil {
+				log.Println("Gagal mengirim response", err)
+			}
+			return
+		}
+	}
+
+	http.Error(w, "Buku tidak ditemukan", http.StatusNotFound)
+
+}
+
+
 
 // UPDATE
 
+
+
+
 // DELETE
+
+
+
 
 func main(){
 	// deklarasi routing atau membuat router
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/buku", getAllBook)
+	mux.HandleFunc("/buku/", getBookByID)
 
 	// membuat Endpoint API
 	mux.HandleFunc( "/", func(w http.ResponseWriter, r *http.Request){
